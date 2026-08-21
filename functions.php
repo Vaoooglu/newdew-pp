@@ -32,7 +32,17 @@ require get_template_directory() . '/inc/enqueue-script-style.php';
 /**
  * Add custom Post types
  */
-//require get_template_directory() . '/inc/post-types.php';
+require get_template_directory() . '/inc/post-types.php';
+
+/**
+ * Recipe fields and YouTube importer.
+ */
+require get_template_directory() . '/inc/recipe-admin.php';
+
+/**
+ * Recipe search helpers.
+ */
+require get_template_directory() . '/inc/recipe-search.php';
 
 /**
  * Add custom Guttenberg blocks with ACF

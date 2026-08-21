@@ -10,7 +10,8 @@
 get_header();
 ?>
 
-	<section id="primary" class="content-area">
+	<section id="primary" class="content-area recipe-search-results">
+		<div class="container">
 
 		<?php if ( have_posts() ) : ?>
 
@@ -18,10 +19,11 @@ get_header();
 				<h1 class="page-title">
 					<?php
 					/* translators: %s: search query. */
-					printf( esc_html__( 'Search Results for: %s', 'oxboxwise' ), '<span>' . get_search_query() . '</span>' );
+					printf( esc_html__( 'Результаты поиска: %s', 'oxboxwise' ), '<span>' . esc_html( get_search_query() ) . '</span>' );
 					?>
 				</h1>
 
+			<div class="recipe-grid">
 			<?php
 			/* Start the Loop */
 			while ( have_posts() ) :
@@ -32,9 +34,16 @@ get_header();
 				 * If you want to overload this in a child theme then include a file
 				 * called content-search.php and that will be used instead.
 				 */
-				get_template_part( 'template-parts/content', 'search' );
+				if ( 'recipe' === get_post_type() ) {
+					get_template_part( 'template-parts/recipe/card', null, array( 'heading_level' => 2 ) );
+				} else {
+					get_template_part( 'template-parts/content', 'search' );
+				}
 
 			endwhile;
+			?>
+			</div>
+			<?php
 
 			the_posts_navigation();
 
@@ -45,8 +54,8 @@ get_header();
 		endif;
 		?>
 
+		</div>
 	</section><!-- #primary -->
 
 <?php
-get_sidebar();
 get_footer();

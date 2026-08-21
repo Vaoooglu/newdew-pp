@@ -18,16 +18,19 @@ function oxboxwise_scripts() {
     wp_enqueue_style('oxboxwise-critical-css', get_template_directory_uri() .'/css/critical.css', array(), _S_VERSION, false);
 //    wp_enqueue_style('oxboxwise-intlTelInput-css', get_template_directory_uri() .'/css/intlTelInput.css', array(), _S_VERSION, false);
     wp_enqueue_style('oxboxwise-custom-css', get_template_directory_uri() .'/css/custom.css', array(), _S_VERSION, false);
-    wp_deregister_script( 'jquery' );
-    wp_register_script( 'jquery', '//ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js');
     wp_enqueue_script( 'jquery' );
-    wp_enqueue_script( 'oxboxwise-libs-script', get_template_directory_uri() . '/js/libs.min.js', array(), null, true );
 //    wp_enqueue_script( 'oxboxwise-swiper-script', get_template_directory_uri() . '/js/swiper-bundle.min.js', array(), null, true );
-    wp_enqueue_script( 'oxboxwise-mask-script', get_template_directory_uri() . '/js/jquery.mask.min.js', array(), '1.14.16', true );
-    wp_enqueue_script( 'oxboxwise-validate-script', get_template_directory_uri() . '/js/jquery.validate.min.js', array(), '1.19.3', true );
+    wp_enqueue_script( 'oxboxwise-mask-script', get_template_directory_uri() . '/js/jquery.mask.min.js', array( 'jquery' ), '1.14.16', true );
+    wp_enqueue_script( 'oxboxwise-validate-script', get_template_directory_uri() . '/js/jquery.validate.min.js', array( 'jquery' ), '1.19.3', true );
 //    wp_enqueue_script( 'oxboxwise-intlTelInput-script', get_template_directory_uri() . '/js/intlTelInput-jquery.min.js', array(), '1.19.3', true );
-    wp_enqueue_script( 'oxboxwise-main-script', get_template_directory_uri() . '/js/main.js', array(), _S_VERSION, true );
-    wp_enqueue_script( 'oxboxwise-custom-script', get_template_directory_uri() . '/js/custom.js', array(), _S_VERSION, true );
+    wp_enqueue_script( 'oxboxwise-main-script', get_template_directory_uri() . '/js/main.js', array( 'jquery', 'oxboxwise-mask-script', 'oxboxwise-validate-script' ), _S_VERSION, true );
+    wp_enqueue_script( 'oxboxwise-custom-script', get_template_directory_uri() . '/js/custom.js', array( 'jquery' ), _S_VERSION, true );
+	if ( is_post_type_archive( 'recipe' ) || is_singular( 'recipe' ) || is_tax( array( 'recipe_category', 'recipe_ingredient' ) ) || is_search() || is_page_template( 'templates/template-mainpage.php' ) ) {
+		wp_enqueue_style( 'oxboxwise-recipe-css', get_template_directory_uri() . '/css/recipe.css', array(), _S_VERSION, false );
+	}
+	if ( is_singular( 'recipe' ) ) {
+		wp_enqueue_script( 'oxboxwise-recipe-video', get_template_directory_uri() . '/js/recipe-video.js', array(), _S_VERSION, true );
+	}
     if ( is_singular() && comments_open() && get_option( 'thread_comments' ) ) {
         wp_enqueue_script( 'comment-reply' );
     }

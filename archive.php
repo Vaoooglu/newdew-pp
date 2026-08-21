@@ -7,6 +7,11 @@
  * @package oxboxwise
  */
 
+if ( is_tax( array( 'recipe_category', 'recipe_ingredient' ) ) ) {
+	include locate_template( 'archive-recipe.php' );
+	return;
+}
+
 get_header();
 ?>
 
