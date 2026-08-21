@@ -1,125 +1,94 @@
 <?php
 /**
- * Template part for displaying footer part
- *
- * @link https://developer.wordpress.org/themes/basics/template-hierarchy/
+ * Site footer, mobile navigation and lightweight panels.
  *
  * @package oxboxwise
  */
 
+$home_url       = home_url( '/' );
+$recipe_archive = get_post_type_archive_link( 'recipe' );
+$phone          = function_exists( 'get_field' ) ? get_field( 'opt_phone_site', 'option' ) : '';
+$socials        = array(
+	'opt_soc_tg'    => 'Telegram',
+	'opt_soc_wa'    => 'WhatsApp',
+	'opt_soc_insta' => 'Instagram',
+	'opt_soc_fb'    => 'Facebook',
+);
 ?>
-<footer class="footer">
-    <div class="container">
-        <div class="footer__inner">
-            <a href="<?php if ((is_front_page() || is_home())) {
-                echo 'javascript:void(0);';
-            } else {
-                echo get_home_url();
-            } ?>" class="logo">
-                <? if(get_field('opt_site_logo','option')){?>
-                    <img src="<?=get_field('opt_site_logo','option')['url']; ?>" alt="<?=get_bloginfo('name');?>">
-                <? } else {?>
-                    <img src="<?=get_template_directory_uri();?>/img/logo.png" alt="<?=get_bloginfo('name');?>">
-                <? }?>
-            </a>
-            <nav class="footer__menu">
-                <ul>
-                    <li><a href="#">Услуги</a></li>
-                    <li><a href="#">О компании</a></li>
-                    <li><a href="#">Контакты</a></li>
-                    <li><a href="#">Блог</a></li>
-                </ul>
-            </nav>
-<!--            --><?php
-//            wp_nav_menu( [
-//                'theme_location'  => 'menu_footer',
-//                'container' => 'nav',
-//                'container_class' => 'footer__menu',
-////                'menu_class' => 'modal-menu__list',
-//                'depth'           => 1,
-//            ] );
-//            ?>
-            <div class="footer__copyright">
-                &copy; <?=date("Y"); ?> Все права зищищены
-            </div>
-        </div>
-    </div>
-</footer>
-<? get_template_part( 'template-parts/content', 'svg' );?>
-<div class="modal-container js-modal-container">
-    <div class="overlay js-modal-close-all"></div>
-    <div class="modal menu js-modal" id="modal-menu">
-        <div class="scroll-container">
-            <div class="modal-menu__top">
-                <span class="icon-close js-modal-close-all"></span>
-            </div>
-            <nav class="modal-menu">
-                <ul class="modal-menu__list">
-                    <li>
-                        Услуги
-                        <ul>
-                            <li><a href="#">DevOps услуги</a></li>
-                            <li><a href="#">Обслуживание серверов</a></li>
-                            <li><a href="#">Облачные услуги</a></li>
-                            <li><a href="#">Системная интеграция</a></li>
-                            <li><a href="#">Обслуживание баз данных</a></li>
-                            <li><a href="#">Услуги Big data</a></li>
-                            <li><a href="#">Разработка личных кабинетов</a></li>
-                            <li><a href="#">Перенос данных</a></li>
-                        </ul>
-                    </li>
-                    <li><a href="#">О компании</a></li>
-                    <li><a href="#">Контакты</a></li>
-                    <li><a href="#">Блог</a></li>
-                </ul>
-            </nav>
-            <? if($phone_site=get_field('opt_phone_site', 'option')){?>
-                <a href="tel:<?php echo preg_replace('/[^0-9+]/', '', $phone_site) ?>" class="tel"><?=$phone_site; ?></a>
-            <? }?>
-        </div>
-    </div>
-</div>
-<div class="modal-container js-modal-container">
-    <div class="overlay js-modal-close-all"></div>
-    <div class="modal js-modal" id="modal-feedback">
-        <div class="modal-content-title">
-            <div class="modal-content-title__box">
-                <p>Обратная связь</p>
-            </div>
-            <span class="icon-close js-modal-close-all"></span>
-        </div>
-        <div class="scroll-container">
-            <form action="#" data-controller="">
-                <div class="input input-wrapper required">
-                    <label class="input-label" for="feedback-name">Имя</label>
-                    <input type="text" id="feedback-name" name="NAME" required>
-                </div>
-                <div class="input input-wrapper required">
-                    <label class="input-label" for="feedback-tel">Телефон</label>
-                    <input type="tel" id="feedback-tel" name="TEL" required>
-                </div>
-                <div class="input input-wrapper">
-                    <label class="input-label" for="feedback-email">E-mail </label>
-                    <input type="email" id="feedback-email" name="MAIL">
-                </div>
-                <div class="input textarea input-wrapper required">
-                    <label class="input-label" for="feedback-mes">Ваше сообщение</label>
-                    <textarea name="MESSAGE" id="feedback-mes" cols="30" rows="10" required></textarea>
-                </div>
-                <label class="checkbox-container required">
-                    Согласен на обработку
-                    <a href="<?=get_field('opt_link_personal','option')['url'];?>" target="_blank">персональных данных</a>
-                    <input type="checkbox" checked name="agreement" required>
-                    <span class="checkmark"></span>
-                </label>
-                <input type="hidden" name="THEME" value="Обратная связь">
-                <input type="hidden" name="action" value="sendform">
-                <input type="hidden" name="PAGE" value="<?php $SiteUri=get_site_url();$Path=$_SERVER['REQUEST_URI']; echo $URI=$SiteUri.$Path; ?>">
-                <div class="col-bottom">
-                <button type="submit" class="ok_but button btn">Отправить</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
 
+<footer class="site-footer">
+	<div class="container site-footer__inner">
+		<div>
+			<p class="site-footer__brand"><?php bloginfo( 'name' ); ?></p>
+			<p class="site-footer__description">Личная библиотека любимых рецептов.</p>
+		</div>
+		<nav class="site-footer__nav" aria-label="Навигация в подвале">
+			<a href="<?php echo esc_url( $recipe_archive ); ?>">Все рецепты</a>
+			<a href="<?php echo esc_url( $home_url . '#categories' ); ?>">Категории</a>
+			<a href="<?php echo esc_url( $home_url . '#favorites' ); ?>">Избранное</a>
+		</nav>
+		<div class="site-footer__contacts">
+			<?php if ( $phone ) : ?>
+				<a href="tel:<?php echo esc_attr( preg_replace( '/[^0-9+]/', '', $phone ) ); ?>"><?php echo esc_html( $phone ); ?></a>
+			<?php endif; ?>
+			<div class="site-footer__socials">
+				<?php foreach ( $socials as $field_name => $label ) : ?>
+					<?php $social_url = function_exists( 'get_field' ) ? get_field( $field_name, 'option' ) : ''; ?>
+					<?php if ( $social_url ) : ?>
+						<a href="<?php echo esc_url( $social_url, array( 'http', 'https', 'tg', 'viber' ) ); ?>" rel="noopener noreferrer" target="_blank"><?php echo esc_html( $label ); ?></a>
+					<?php endif; ?>
+				<?php endforeach; ?>
+			</div>
+		</div>
+	</div>
+	<div class="container site-footer__bottom">
+		<p>&copy; <?php echo esc_html( gmdate( 'Y' ) ); ?> <?php bloginfo( 'name' ); ?></p>
+	</div>
+</footer>
+
+<nav class="mobile-nav" aria-label="Мобильная навигация">
+	<a class="mobile-nav__item<?php echo is_front_page() ? ' is-active' : ''; ?>" href="<?php echo esc_url( $home_url ); ?>">
+		<svg aria-hidden="true"><use href="#icon-home"></use></svg><span>Главная</span>
+	</a>
+	<button class="mobile-nav__item" type="button" data-panel-open="search-panel" aria-controls="search-panel" aria-expanded="false">
+		<svg aria-hidden="true"><use href="#icon-search"></use></svg><span>Поиск</span>
+	</button>
+	<a class="mobile-nav__item" href="<?php echo esc_url( $home_url . '#favorites' ); ?>">
+		<svg aria-hidden="true"><use href="#icon-heart"></use></svg><span>Избранное</span>
+	</a>
+	<button class="mobile-nav__item" type="button" data-panel-open="menu-panel" aria-controls="menu-panel" aria-expanded="false">
+		<svg aria-hidden="true"><use href="#icon-menu"></use></svg><span>Меню</span>
+	</button>
+</nav>
+
+<div class="site-panel-backdrop" data-panel-close hidden></div>
+
+<section id="search-panel" class="site-panel site-panel--search" role="dialog" aria-modal="true" aria-labelledby="search-panel-title" aria-hidden="true" hidden>
+	<div class="site-panel__handle" aria-hidden="true"></div>
+	<div class="site-panel__header">
+		<h2 id="search-panel-title">Найти рецепт</h2>
+		<button class="icon-button" type="button" data-panel-close aria-label="Закрыть поиск">
+			<svg aria-hidden="true"><use href="#icon-close"></use></svg>
+		</button>
+	</div>
+	<?php get_search_form(); ?>
+	<p class="site-panel__hint">Ищите по названию, ингредиенту, категории или тегу.</p>
+</section>
+
+<section id="menu-panel" class="site-panel site-panel--menu" role="dialog" aria-modal="true" aria-labelledby="menu-panel-title" aria-hidden="true" hidden>
+	<div class="site-panel__handle" aria-hidden="true"></div>
+	<div class="site-panel__header">
+		<h2 id="menu-panel-title">Меню</h2>
+		<button class="icon-button" type="button" data-panel-close aria-label="Закрыть меню">
+			<svg aria-hidden="true"><use href="#icon-close"></use></svg>
+		</button>
+	</div>
+	<nav class="panel-nav" aria-label="Мобильное меню">
+		<a href="<?php echo esc_url( $home_url ); ?>">Главная</a>
+		<a href="<?php echo esc_url( $recipe_archive ); ?>">Все рецепты</a>
+		<a href="<?php echo esc_url( $home_url . '#categories' ); ?>">Категории</a>
+		<a href="<?php echo esc_url( $home_url . '#favorites' ); ?>">Избранное</a>
+	</nav>
+</section>
+
+<?php get_template_part( 'template-parts/content', 'svg' ); ?>

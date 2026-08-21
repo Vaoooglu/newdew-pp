@@ -16,15 +16,15 @@ if ( ! $time && ! $portions && ( ! $categories || is_wp_error( $categories ) ) )
 
 <dl class="recipe-meta">
 	<?php if ( $categories && ! is_wp_error( $categories ) ) : ?>
-		<div class="recipe-meta__item">
+		<div class="recipe-meta__item recipe-meta__item--category">
 			<dt>Категория</dt>
 			<dd><?php echo wp_kses_post( get_the_term_list( get_the_ID(), 'recipe_category', '', ', ' ) ); ?></dd>
 		</div>
 	<?php endif; ?>
 	<?php if ( $time ) : ?>
-		<div class="recipe-meta__item"><dt>Время</dt><dd><?php echo esc_html( $time ); ?></dd></div>
+		<div class="recipe-meta__item"><svg aria-hidden="true"><use href="#icon-clock"></use></svg><dt>Время</dt><dd><?php echo esc_html( $time ); ?></dd></div>
 	<?php endif; ?>
 	<?php if ( $portions ) : ?>
-		<div class="recipe-meta__item"><dt>Порции</dt><dd><?php echo esc_html( $portions ); ?></dd></div>
+		<div class="recipe-meta__item"><svg aria-hidden="true"><use href="#icon-users"></use></svg><dt>Порции</dt><dd><?php echo esc_html( $portions ); ?></dd></div>
 	<?php endif; ?>
 </dl>

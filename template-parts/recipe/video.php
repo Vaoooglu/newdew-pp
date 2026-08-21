@@ -16,6 +16,7 @@ $preview = has_post_thumbnail() ? get_the_post_thumbnail_url( get_the_ID(), 'lar
 <div class="recipe-video" data-youtube-id="<?php echo esc_attr( $video_id ); ?>">
 	<button class="recipe-video__button" type="button" aria-label="Воспроизвести видео: <?php echo esc_attr( get_the_title() ); ?>">
 		<img src="<?php echo esc_url( $preview ); ?>" alt="" loading="lazy" width="1280" height="720">
-		<span class="recipe-video__play" aria-hidden="true">▶</span>
+		<span class="recipe-video__play" aria-hidden="true"><svg><use href="#icon-play"></use></svg></span>
+		<span class="recipe-video__label">Смотреть видео</span>
 	</button>
 </div>

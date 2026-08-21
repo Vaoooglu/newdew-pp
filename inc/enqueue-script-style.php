@@ -10,24 +10,11 @@ if ( ! defined( '_S_VERSION' ) ) {
     define( '_S_VERSION', '1.0.0' );
 }
 function oxboxwise_scripts() {
-    wp_enqueue_style('oxboxwise-lib-css', get_template_directory_uri() .'/css/libs.min.css', array(), _S_VERSION, false);
     wp_enqueue_style( 'oxboxwise-style', get_stylesheet_uri(), array(), _S_VERSION );
     wp_style_add_data( 'oxboxwise-style', 'rtl', 'replace' );
-    if(is_page_template( 'templates/template-configurator.php' )){
-    }
-    wp_enqueue_style('oxboxwise-critical-css', get_template_directory_uri() .'/css/critical.css', array(), _S_VERSION, false);
-//    wp_enqueue_style('oxboxwise-intlTelInput-css', get_template_directory_uri() .'/css/intlTelInput.css', array(), _S_VERSION, false);
-    wp_enqueue_style('oxboxwise-custom-css', get_template_directory_uri() .'/css/custom.css', array(), _S_VERSION, false);
-    wp_enqueue_script( 'jquery' );
-//    wp_enqueue_script( 'oxboxwise-swiper-script', get_template_directory_uri() . '/js/swiper-bundle.min.js', array(), null, true );
-    wp_enqueue_script( 'oxboxwise-mask-script', get_template_directory_uri() . '/js/jquery.mask.min.js', array( 'jquery' ), '1.14.16', true );
-    wp_enqueue_script( 'oxboxwise-validate-script', get_template_directory_uri() . '/js/jquery.validate.min.js', array( 'jquery' ), '1.19.3', true );
-//    wp_enqueue_script( 'oxboxwise-intlTelInput-script', get_template_directory_uri() . '/js/intlTelInput-jquery.min.js', array(), '1.19.3', true );
-    wp_enqueue_script( 'oxboxwise-main-script', get_template_directory_uri() . '/js/main.js', array( 'jquery', 'oxboxwise-mask-script', 'oxboxwise-validate-script' ), _S_VERSION, true );
-    wp_enqueue_script( 'oxboxwise-custom-script', get_template_directory_uri() . '/js/custom.js', array( 'jquery' ), _S_VERSION, true );
-	if ( is_post_type_archive( 'recipe' ) || is_singular( 'recipe' ) || is_tax( array( 'recipe_category', 'recipe_ingredient' ) ) || is_search() || is_page_template( 'templates/template-mainpage.php' ) ) {
-		wp_enqueue_style( 'oxboxwise-recipe-css', get_template_directory_uri() . '/css/recipe.css', array(), _S_VERSION, false );
-	}
+	wp_enqueue_style( 'oxboxwise-fonts', 'https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap', array(), null );
+	wp_enqueue_style( 'oxboxwise-recipe-css', get_template_directory_uri() . '/css/recipe.css', array(), _S_VERSION, false );
+	wp_enqueue_script( 'oxboxwise-site', get_template_directory_uri() . '/js/site.js', array(), _S_VERSION, true );
 	if ( is_singular( 'recipe' ) ) {
 		wp_enqueue_script( 'oxboxwise-recipe-video', get_template_directory_uri() . '/js/recipe-video.js', array(), _S_VERSION, true );
 	}
@@ -36,6 +23,25 @@ function oxboxwise_scripts() {
     }
 }
 add_action( 'wp_enqueue_scripts', 'oxboxwise_scripts' );
+
+/**
+ * Preconnect only to the two Google Fonts origins used by the theme.
+ *
+ * @param array  $urls          Resource hints.
+ * @param string $relation_type Hint type.
+ * @return array
+ */
+function oxboxwise_font_resource_hints( $urls, $relation_type ) {
+	if ( 'preconnect' === $relation_type ) {
+		$urls[] = 'https://fonts.googleapis.com';
+		$urls[] = array(
+			'href'        => 'https://fonts.gstatic.com',
+			'crossorigin' => 'anonymous',
+		);
+	}
+	return $urls;
+}
+add_filter( 'wp_resource_hints', 'oxboxwise_font_resource_hints', 10, 2 );
 
 function wpassist_remove_block_library_css(){
     wp_dequeue_style( 'wp-block-library' );

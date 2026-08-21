@@ -15,12 +15,53 @@ if ( ! defined( 'ABSPATH' ) ) {
  * @param WP_Query $query Query instance.
  */
 function oxboxwise_prepare_recipe_search( $query ) {
-	if ( is_admin() || ! $query->is_main_query() || ! $query->is_search() ) {
+	if ( is_admin() || ! $query->is_main_query() ) {
 		return;
 	}
 
-	$query->set( 'post_type', 'recipe' );
-	$query->set( 'oxboxwise_recipe_search', true );
+	$is_recipe_query = $query->is_search() || $query->is_post_type_archive( 'recipe' ) || $query->is_tax( array( 'recipe_category', 'recipe_ingredient' ) );
+	if ( ! $is_recipe_query ) {
+		return;
+	}
+
+	if ( $query->is_search() ) {
+		$query->set( 'post_type', 'recipe' );
+		$query->set( 'oxboxwise_recipe_search', true );
+	}
+
+	$tax_query = (array) $query->get( 'tax_query' );
+	$category  = isset( $_GET['recipe_category_filter'] ) ? sanitize_title( wp_unslash( $_GET['recipe_category_filter'] ) ) : '';
+	$tag       = isset( $_GET['recipe_tag'] ) ? sanitize_title( wp_unslash( $_GET['recipe_tag'] ) ) : '';
+	$ingredients = isset( $_GET['ingredients'] ) ? array_map( 'sanitize_title', (array) wp_unslash( $_GET['ingredients'] ) ) : array();
+	$ingredients = array_values( array_unique( array_filter( $ingredients ) ) );
+
+	if ( $category ) {
+		$tax_query[] = array(
+			'taxonomy' => 'recipe_category',
+			'field'    => 'slug',
+			'terms'    => array( $category ),
+		);
+	}
+	if ( $ingredients ) {
+		$tax_query[] = array(
+			'taxonomy' => 'recipe_ingredient',
+			'field'    => 'slug',
+			'terms'    => $ingredients,
+			'operator' => 'AND',
+		);
+	}
+	if ( $tag ) {
+		$tax_query[] = array(
+			'taxonomy' => 'post_tag',
+			'field'    => 'slug',
+			'terms'    => array( $tag ),
+		);
+	}
+
+	if ( $tax_query ) {
+		$tax_query['relation'] = 'AND';
+		$query->set( 'tax_query', $tax_query );
+	}
 }
 add_action( 'pre_get_posts', 'oxboxwise_prepare_recipe_search' );
 
