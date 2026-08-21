@@ -1,0 +1,16 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# VS Code
+.vscode/
+
+# JetBrains
+.idea/
+
+# Temporary files
+*.swp
+*.swo
+*~
