@@ -35,7 +35,7 @@ require get_template_directory() . '/inc/enqueue-script-style.php';
 require get_template_directory() . '/inc/post-types.php';
 
 /**
- * Recipe fields and YouTube importer.
+ * Recipe fields and media helpers.
  */
 require get_template_directory() . '/inc/recipe-admin.php';
 

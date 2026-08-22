@@ -15,9 +15,6 @@ function oxboxwise_scripts() {
 	wp_enqueue_style( 'oxboxwise-fonts', 'https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap', array(), null );
 	wp_enqueue_style( 'oxboxwise-recipe-css', get_template_directory_uri() . '/css/recipe.css', array(), _S_VERSION, false );
 	wp_enqueue_script( 'oxboxwise-site', get_template_directory_uri() . '/js/site.js', array(), _S_VERSION, true );
-	if ( is_singular( 'recipe' ) ) {
-		wp_enqueue_script( 'oxboxwise-recipe-video', get_template_directory_uri() . '/js/recipe-video.js', array(), _S_VERSION, true );
-	}
     if ( is_singular() && comments_open() && get_option( 'thread_comments' ) ) {
         wp_enqueue_script( 'comment-reply' );
     }

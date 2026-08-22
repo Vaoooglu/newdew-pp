@@ -16,7 +16,7 @@ while ( have_posts() ) :
 			<div class="recipe-single__hero">
 				<div class="recipe-single__media">
 					<?php
-					$video_id = get_post_meta( get_the_ID(), '_recipe_youtube_video_id', true );
+					$video_id = oxboxwise_get_recipe_video_id();
 					if ( $video_id ) {
 						get_template_part( 'template-parts/recipe/video', null, array( 'video_id' => $video_id ) );
 					} elseif ( has_post_thumbnail() ) {

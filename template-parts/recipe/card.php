@@ -8,7 +8,7 @@
 $heading_level = isset( $args['heading_level'] ) && in_array( (int) $args['heading_level'], array( 2, 3 ), true ) ? (int) $args['heading_level'] : 2;
 $categories    = get_the_terms( get_the_ID(), 'recipe_category' );
 $time          = function_exists( 'get_field' ) ? get_field( 'recipe_cooking_time' ) : get_post_meta( get_the_ID(), 'recipe_cooking_time', true );
-$video_id      = get_post_meta( get_the_ID(), '_recipe_youtube_video_id', true );
+$video_id      = oxboxwise_get_recipe_video_id();
 $image_url     = has_post_thumbnail() ? get_the_post_thumbnail_url( get_the_ID(), 'medium' ) : '';
 ?>
 
