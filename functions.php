@@ -40,6 +40,11 @@ require get_template_directory() . '/inc/post-types.php';
 require get_template_directory() . '/inc/recipe-admin.php';
 
 /**
+ * Recipe REST API.
+ */
+require get_template_directory() . '/inc/recipe-api.php';
+
+/**
  * Recipe search helpers.
  */
 require get_template_directory() . '/inc/recipe-search.php';
