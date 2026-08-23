@@ -1469,14 +1469,45 @@ h3 {
 }
 
 .breadcrumbs {
-	padding: 10px 0;
-	border-color: var(--color-border);
+	padding-block: 11px;
+	border-bottom: 1px solid var(--color-border);
 	background: var(--color-surface);
 	color: var(--color-text-muted);
+	font-size: 0.8rem;
+	line-height: 1.4;
+}
+
+.breadcrumbs ul {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	width: min(100%, calc(var(--container-width) + 32px));
+	margin: 0 auto;
+	padding-inline: 16px;
+	list-style: none;
+}
+
+.breadcrumbs li {
+	display: inline-flex;
+	align-items: center;
+	min-width: 0;
+}
+
+.breadcrumbs li:not(:last-child)::after {
+	content: "\203A";
+	margin-inline: 8px;
+	color: var(--color-border);
+	font-size: 1rem;
+	line-height: 1;
 }
 
 .breadcrumbs a {
 	color: var(--color-accent);
+	font-weight: 500;
+}
+
+.breadcrumbs a:hover {
+	color: var(--color-accent-hover);
 }
 
 @media (min-width: 720px) {
@@ -1485,6 +1516,11 @@ h3 {
 	}
 
 	.container {
+		width: min(100%, calc(var(--container-width) + 48px));
+		padding-inline: 24px;
+	}
+
+	.breadcrumbs ul {
 		width: min(100%, calc(var(--container-width) + 48px));
 		padding-inline: 24px;
 	}
