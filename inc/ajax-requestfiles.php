@@ -179,7 +179,7 @@ function sendform(){
     $response['attachments'] = $attachments;
     $mail_to = $mail_send;
 //    Telegram bot --START--
-    //$api_tgbot = bot5092212205:AAG1R7o1ufBMjkc0ey-vlwXidepyIYpuI0U
+    // Never store Telegram bot tokens in the theme or Git history.
     //$chat_id = -1001735576932
     if(get_field('opt_tgbot_api','option') && get_field('opt_tgbot_chat','option')) {
 		$api_tgbot = get_field('opt_tgbot_api','option');

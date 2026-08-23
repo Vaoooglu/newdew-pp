@@ -28,7 +28,7 @@ function oxboxwise_register_recipe_api_fields() {
 					'name'         => 'recipe_api_token',
 					'type'         => 'password',
 					'required'     => 0,
-					'instructions' => 'Секретный Bearer token длиной не менее 32 символов. Значение RECIPE_API_TOKEN из wp-config.php имеет приоритет.',
+					'instructions' => 'Секретный Bearer token длиной не менее 32 символов для внешних server-to-server запросов.',
 				),
 				array(
 					'key'           => 'field_oxboxwise_recipe_api_author',
@@ -36,7 +36,7 @@ function oxboxwise_register_recipe_api_fields() {
 					'name'          => 'recipe_api_author',
 					'type'          => 'user',
 					'required'      => 0,
-					'instructions'  => 'Пользователь должен иметь право создавать записи, а для status=publish — публиковать их. RECIPE_API_AUTHOR_ID имеет приоритет.',
+					'instructions'  => 'От имени этого пользователя API и Telegram-бот создают рецепты и загружают файлы.',
 					'role'          => array(),
 					'allow_null'    => 1,
 					'multiple'      => 0,
@@ -79,15 +79,6 @@ add_filter( 'acf/validate_value/key=field_oxboxwise_recipe_api_token', 'oxboxwis
  * @return string
  */
 function oxboxwise_get_recipe_api_token() {
-	if ( defined( 'RECIPE_API_TOKEN' ) && is_string( RECIPE_API_TOKEN ) ) {
-		return trim( RECIPE_API_TOKEN );
-	}
-
-	$environment_token = getenv( 'RECIPE_API_TOKEN' );
-	if ( is_string( $environment_token ) && '' !== trim( $environment_token ) ) {
-		return trim( $environment_token );
-	}
-
 	if ( function_exists( 'get_field' ) ) {
 		return trim( (string) get_field( 'recipe_api_token', 'option', false ) );
 	}
@@ -101,15 +92,6 @@ function oxboxwise_get_recipe_api_token() {
  * @return int
  */
 function oxboxwise_get_recipe_api_author_id() {
-	if ( defined( 'RECIPE_API_AUTHOR_ID' ) ) {
-		return absint( RECIPE_API_AUTHOR_ID );
-	}
-
-	$environment_author = getenv( 'RECIPE_API_AUTHOR_ID' );
-	if ( false !== $environment_author && '' !== $environment_author ) {
-		return absint( $environment_author );
-	}
-
 	if ( function_exists( 'get_field' ) ) {
 		return absint( get_field( 'recipe_api_author', 'option', false ) );
 	}
@@ -164,6 +146,26 @@ function oxboxwise_register_recipe_api_routes() {
 		array(
 			'methods'             => WP_REST_Server::CREATABLE,
 			'callback'            => 'oxboxwise_recipe_api_create_recipe',
+			'permission_callback' => 'oxboxwise_recipe_api_permission',
+		)
+	);
+
+	register_rest_route(
+		'oxboxwise/v1',
+		'/media',
+		array(
+			'methods'             => WP_REST_Server::CREATABLE,
+			'callback'            => 'oxboxwise_recipe_api_upload_media',
+			'permission_callback' => 'oxboxwise_recipe_api_permission',
+		)
+	);
+
+	register_rest_route(
+		'oxboxwise/v1',
+		'/terms',
+		array(
+			'methods'             => WP_REST_Server::READABLE,
+			'callback'            => 'oxboxwise_recipe_api_get_terms',
 			'permission_callback' => 'oxboxwise_recipe_api_permission',
 		)
 	);
@@ -384,6 +386,168 @@ function oxboxwise_recipe_api_success_response( $recipe_id, $duplicate = false )
 }
 
 /**
+ * Return and authorize the configured service user.
+ *
+ * @param string $capability Required WordPress capability.
+ * @return WP_User|WP_REST_Response
+ */
+function oxboxwise_recipe_api_get_author( $capability ) {
+	$author_id = oxboxwise_get_recipe_api_author_id();
+	$author    = $author_id ? get_user_by( 'id', $author_id ) : false;
+
+	if ( ! $author ) {
+		return oxboxwise_recipe_api_error_response( 'recipe_api_author_not_configured', 'Recipe API author is not configured.', 503 );
+	}
+	if ( ! user_can( $author, $capability ) ) {
+		return oxboxwise_recipe_api_error_response( 'recipe_api_author_forbidden', 'Configured API author does not have the required capability.', 403 );
+	}
+
+	return $author;
+}
+
+/**
+ * Upload an image or recipe video to the WordPress Media Library.
+ *
+ * @param WP_REST_Request $request REST request.
+ * @return WP_REST_Response
+ */
+function oxboxwise_recipe_api_upload_media( $request ) {
+	unset( $request );
+	$author = oxboxwise_recipe_api_get_author( 'upload_files' );
+	if ( $author instanceof WP_REST_Response ) {
+		return $author;
+	}
+
+	$files = isset( $_FILES ) && is_array( $_FILES ) ? $_FILES : array(); // phpcs:ignore WordPress.Security.NonceVerification.Missing
+	if ( empty( $files['file'] ) || ! is_array( $files['file'] ) ) {
+		return oxboxwise_recipe_api_error_response( 'missing_media_file', 'A multipart file field named file is required.', 400 );
+	}
+
+	$file = $files['file'];
+	if ( ! isset( $file['error'] ) || UPLOAD_ERR_OK !== (int) $file['error'] ) {
+		return oxboxwise_recipe_api_error_response( 'media_upload_error', 'PHP did not receive the uploaded file successfully.', 400 );
+	}
+	if ( empty( $file['tmp_name'] ) || empty( $file['name'] ) || empty( $file['size'] ) ) {
+		return oxboxwise_recipe_api_error_response( 'invalid_media_file', 'The uploaded file is empty or incomplete.', 422 );
+	}
+	if ( (int) $file['size'] > wp_max_upload_size() ) {
+		return oxboxwise_recipe_api_error_response( 'media_file_too_large', 'The file exceeds the WordPress upload limit.', 413 );
+	}
+
+	$allowed_mimes = get_allowed_mime_types( $author->ID );
+	$file_check    = wp_check_filetype_and_ext( $file['tmp_name'], sanitize_file_name( $file['name'] ), $allowed_mimes );
+	$mime_type     = isset( $file_check['type'] ) ? $file_check['type'] : '';
+	$extension     = isset( $file_check['ext'] ) ? $file_check['ext'] : '';
+
+	if ( ! $mime_type || ! $extension ) {
+		return oxboxwise_recipe_api_error_response( 'invalid_media_type', 'WordPress does not allow this file type.', 422 );
+	}
+
+	$is_image = 0 === strpos( $mime_type, 'image/' );
+	$is_video = 0 === strpos( $mime_type, 'video/' );
+	if ( ! $is_image && ! $is_video ) {
+		return oxboxwise_recipe_api_error_response( 'invalid_media_type', 'Only image and video files are accepted.', 422 );
+	}
+	if ( $is_video && ! in_array( $mime_type, array( 'video/mp4', 'video/quicktime', 'video/webm', 'video/ogg' ), true ) ) {
+		return oxboxwise_recipe_api_error_response( 'invalid_video_type', 'Video must be MP4, M4V, MOV, WebM or OGV.', 422 );
+	}
+
+	require_once ABSPATH . 'wp-admin/includes/file.php';
+	require_once ABSPATH . 'wp-admin/includes/media.php';
+	require_once ABSPATH . 'wp-admin/includes/image.php';
+
+	$attachment_id = media_handle_upload(
+		'file',
+		0,
+		array(
+			'post_author' => $author->ID,
+			'post_title'  => sanitize_text_field( pathinfo( $file['name'], PATHINFO_FILENAME ) ),
+		),
+		array( 'test_form' => false )
+	);
+	if ( is_wp_error( $attachment_id ) ) {
+		oxboxwise_recipe_api_log_error( 'media_upload_failed', $attachment_id->get_error_message() );
+		return oxboxwise_recipe_api_error_response( 'media_upload_failed', 'WordPress could not save the media file.', 500 );
+	}
+
+	return new WP_REST_Response(
+		array(
+			'success'       => true,
+			'attachment_id' => (int) $attachment_id,
+			'media_type'    => $is_video ? 'video' : 'image',
+			'mime_type'     => get_post_mime_type( $attachment_id ),
+			'url'           => wp_get_attachment_url( $attachment_id ),
+		),
+		201
+	);
+}
+
+/**
+ * Return existing terms from one of the recipe taxonomies.
+ *
+ * @param WP_REST_Request $request REST request.
+ * @return WP_REST_Response
+ */
+function oxboxwise_recipe_api_get_terms( $request ) {
+	$allowed_taxonomies = array( 'recipe_category', 'recipe_ingredient', 'post_tag' );
+	$taxonomy           = sanitize_key( (string) $request->get_param( 'taxonomy' ) );
+	if ( ! in_array( $taxonomy, $allowed_taxonomies, true ) ) {
+		return oxboxwise_recipe_api_error_response( 'invalid_taxonomy', 'taxonomy must be recipe_category, recipe_ingredient or post_tag.', 422 );
+	}
+
+	$page     = max( 1, absint( $request->get_param( 'page' ) ) );
+	$per_page = min( 100, max( 1, absint( $request->get_param( 'per_page' ) ) ) );
+	$search   = sanitize_text_field( (string) $request->get_param( 'search' ) );
+	$terms    = get_terms(
+		array(
+			'taxonomy'   => $taxonomy,
+			'hide_empty' => false,
+			'orderby'    => 'name',
+			'order'      => 'ASC',
+			'number'     => $per_page,
+			'offset'     => ( $page - 1 ) * $per_page,
+			'search'     => $search,
+		)
+	);
+	if ( is_wp_error( $terms ) ) {
+		oxboxwise_recipe_api_log_error( 'recipe_terms_failed', $terms->get_error_message() );
+		return oxboxwise_recipe_api_error_response( 'recipe_terms_failed', 'WordPress could not read recipe terms.', 500 );
+	}
+
+	$total = wp_count_terms(
+		$taxonomy,
+		array(
+			'hide_empty' => false,
+			'search'     => $search,
+		)
+	);
+	$total = is_wp_error( $total ) ? count( $terms ) : absint( $total );
+
+	$items = array();
+	foreach ( $terms as $term ) {
+		$items[] = array(
+			'id'    => (int) $term->term_id,
+			'name'  => $term->name,
+			'slug'  => $term->slug,
+			'count' => (int) $term->count,
+		);
+	}
+
+	return new WP_REST_Response(
+		array(
+			'success'     => true,
+			'taxonomy'    => $taxonomy,
+			'terms'       => $items,
+			'page'        => $page,
+			'per_page'    => $per_page,
+			'total'       => $total,
+			'total_pages' => (int) ceil( $total / $per_page ),
+		),
+		200
+	);
+}
+
+/**
  * Create a recipe from a validated REST request.
  *
  * @param WP_REST_Request $request REST request.
@@ -436,16 +600,12 @@ function oxboxwise_recipe_api_create_recipe( $request ) {
 		return oxboxwise_recipe_api_error_response( 'invalid_status', 'status must be draft or publish.', 422 );
 	}
 
-	$author_id = oxboxwise_get_recipe_api_author_id();
-	$author    = $author_id ? get_user_by( 'id', $author_id ) : false;
-	if ( ! $author ) {
-		return oxboxwise_recipe_api_error_response( 'recipe_api_author_not_configured', 'Recipe API author is not configured.', 503 );
-	}
-
 	$required_capability = 'publish' === $status ? 'publish_posts' : 'edit_posts';
-	if ( ! user_can( $author, $required_capability ) ) {
-		return oxboxwise_recipe_api_error_response( 'recipe_api_author_forbidden', 'Configured API author cannot create a recipe with this status.', 403 );
+	$author              = oxboxwise_recipe_api_get_author( $required_capability );
+	if ( $author instanceof WP_REST_Response ) {
+		return $author;
 	}
+	$author_id = $author->ID;
 
 	$external_id = '';
 	if ( array_key_exists( 'external_id', $params ) ) {

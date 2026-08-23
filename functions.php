@@ -45,6 +45,11 @@ require get_template_directory() . '/inc/recipe-admin.php';
 require get_template_directory() . '/inc/recipe-api.php';
 
 /**
+ * Telegram webhook for creating recipes.
+ */
+require get_template_directory() . '/inc/telegram-recipe-bot.php';
+
+/**
  * Recipe search helpers.
  */
 require get_template_directory() . '/inc/recipe-search.php';

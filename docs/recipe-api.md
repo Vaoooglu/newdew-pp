@@ -17,16 +17,7 @@ Authorization: Bearer <API_TOKEN>
 - `API token` — случайная секретная строка длиной не менее 32 символов;
 - `Автор рецептов API` — пользователь WordPress, от имени которого создаются записи.
 
-Автор должен иметь право `edit_posts`. Для запросов с `status: "publish"` ему также необходимо право `publish_posts`.
-
-Секрет и автора можно задать в `wp-config.php`; эти значения имеют приоритет над ACF:
-
-```php
-define( 'RECIPE_API_TOKEN', getenv( 'RECIPE_API_TOKEN' ) );
-define( 'RECIPE_API_AUTHOR_ID', 2 );
-```
-
-Не добавляйте фактический token в Git. API не возвращает и не записывает его в лог.
+Автор должен иметь права `edit_posts` и `upload_files`. Для запросов с `status: "publish"` ему также необходимо право `publish_posts`. Настройки хранятся в ACF Options и не находятся в Git. API не возвращает и не записывает token в лог.
 
 ## Поля запроса
 
@@ -127,11 +118,61 @@ curl --request POST 'https://example.com/wp-json/oxboxwise/v1/recipes' \
 
 ## Media workflow
 
-Текущий endpoint не принимает multipart-файлы. Backend Telegram должен:
+Recipe endpoint не принимает multipart-файлы. Для загрузки в медиатеку добавлен отдельный защищённый endpoint:
+
+```text
+POST /wp-json/oxboxwise/v1/media
+Authorization: Bearer <API_TOKEN>
+Content-Type: multipart/form-data
+```
+
+Файл передаётся в поле `file`. Успешный ответ содержит `attachment_id`, `media_type`, `mime_type` и `url`.
+
+Внешний backend при необходимости должен:
 
 1. получить файл из Telegram;
-2. загрузить его как attachment в WordPress Media Library;
+2. загрузить его через `/oxboxwise/v1/media` как attachment в WordPress Media Library;
 3. передать image attachment ID как `featured_media_id`;
 4. передать video attachment ID как `recipe_video_id`.
 
 Endpoint проверяет существование attachment и MIME-группу `image/*`. Для видео разрешены форматы, соответствующие ACF-полю рецепта: MP4/M4V, MOV, WebM и OGV. YouTube URL в модели рецепта не используется.
+
+## Taxonomy terms
+
+Бот может читать существующие terms без их автоматического создания:
+
+```text
+GET /wp-json/oxboxwise/v1/terms?taxonomy=recipe_category&page=1&per_page=20
+Authorization: Bearer <API_TOKEN>
+```
+
+Допустимые taxonomy: `recipe_category`, `recipe_ingredient`, `post_tag`. Поддерживаются параметры `page`, `per_page` (до 100) и `search`.
+
+## Встроенный Telegram webhook
+
+Для Telegram-бота внешний backend не требуется. Тема принимает обновления напрямую:
+
+```text
+POST /wp-json/oxboxwise/v1/telegram/webhook
+X-Telegram-Bot-Api-Secret-Token: <WEBHOOK_SECRET>
+Content-Type: application/json
+```
+
+Настройки находятся в **ОБЩИЕ НАСТРОЙКИ сайта → Telegram-бот рецептов**:
+
+- `Bot token` — токен от BotFather;
+- `Webhook secret` — случайная строка длиной 32–256 символов; можно оставить пустым, чтобы WordPress сгенерировал её автоматически;
+- `Разрешённые Telegram user ID` — allowlist пользователей бота;
+- `Автор рецептов API` в блоке API рецептов — WordPress-пользователь, от имени которого загружаются файлы и создаются записи.
+
+После сохранения настроек WordPress автоматически вызывает Telegram `setWebhook` и `setMyCommands`. Сайт должен иметь публичный HTTPS-сертификат, а исходящие HTTPS-запросы к `api.telegram.org` не должны блокироваться хостингом.
+
+Команды бота:
+
+- `/start` — справка;
+- `/newrecipe` — новый рецепт;
+- `/cancel` — отмена текущего диалога;
+- `/id` — показать Telegram user ID (доступна до добавления пользователя в allowlist);
+- `/skip` — пропустить необязательный шаг.
+
+Состояние незавершённого диалога хранится в WordPress transients семь дней. Фото и видео скачиваются из Telegram, проходят проверку размера/MIME и сохраняются как attachments в медиатеке. Повторно доставленные Telegram update ID не обрабатываются дважды; `external_id` дополнительно защищает от повторного создания рецепта.
