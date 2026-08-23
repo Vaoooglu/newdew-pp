@@ -11,6 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 define( 'OXBOXWISE_TELEGRAM_WEBHOOK_ROUTE', '/oxboxwise/v1/telegram/webhook' );
 define( 'OXBOXWISE_TELEGRAM_TERM_PAGE_SIZE', 12 );
+define( 'OXBOXWISE_TELEGRAM_FILE_DOWNLOAD_LIMIT', 20 * MB_IN_BYTES );
 
 /**
  * Add Telegram settings to the existing ACF options page.
@@ -465,6 +466,43 @@ function oxboxwise_telegram_user_is_allowed( $user_id ) {
 }
 
 /**
+ * Validate the WordPress user used by the Telegram recipe workflow.
+ *
+ * @param string $status Recipe status.
+ * @param bool   $needs_media Whether the recipe contains pending media.
+ * @return true|WP_Error
+ */
+function oxboxwise_telegram_validate_recipe_author( $status = 'draft', $needs_media = false ) {
+	$author_id = oxboxwise_get_recipe_api_author_id();
+	$author    = $author_id ? get_user_by( 'id', $author_id ) : false;
+	if ( ! $author ) {
+		return new WP_Error(
+			'telegram_recipe_author_not_configured',
+			'В WordPress откройте «Общие настройки сайта → API рецептов», выберите «Автор рецептов API» и сохраните настройки.'
+		);
+	}
+
+	$required_capabilities = array( 'edit_posts' );
+	if ( 'publish' === $status ) {
+		$required_capabilities[] = 'publish_posts';
+	}
+	if ( $needs_media ) {
+		$required_capabilities[] = 'upload_files';
+	}
+
+	foreach ( $required_capabilities as $capability ) {
+		if ( ! user_can( $author, $capability ) ) {
+			return new WP_Error(
+				'telegram_recipe_author_forbidden',
+				'У выбранного автора рецептов недостаточно прав. Назначьте ему роль автора, редактора или администратора и повторите попытку.'
+			);
+		}
+	}
+
+	return true;
+}
+
+/**
  * Return a safe command name from message text.
  *
  * @param string $text Message text.
@@ -636,6 +674,7 @@ function oxboxwise_telegram_extract_image( $message ) {
 				'file_id'   => (string) $photo['file_id'],
 				'filename'  => 'telegram-photo-' . sanitize_file_name( (string) $photo['file_unique_id'] ) . '.jpg',
 				'mime_type' => 'image/jpeg',
+				'file_size' => isset( $photo['file_size'] ) ? absint( $photo['file_size'] ) : 0,
 			);
 		}
 	}
@@ -647,6 +686,7 @@ function oxboxwise_telegram_extract_image( $message ) {
 			'file_id'   => (string) $document['file_id'],
 			'filename'  => sanitize_file_name( isset( $document['file_name'] ) ? $document['file_name'] : 'telegram-image' ),
 			'mime_type' => $mime,
+			'file_size' => isset( $document['file_size'] ) ? absint( $document['file_size'] ) : 0,
 		);
 	}
 
@@ -667,6 +707,7 @@ function oxboxwise_telegram_extract_video( $message ) {
 			'file_id'   => (string) $video['file_id'],
 			'filename'  => sanitize_file_name( ! empty( $video['file_name'] ) ? $video['file_name'] : 'telegram-video-' . $unique . '.mp4' ),
 			'mime_type' => sanitize_mime_type( ! empty( $video['mime_type'] ) ? $video['mime_type'] : 'video/mp4' ),
+			'file_size' => isset( $video['file_size'] ) ? absint( $video['file_size'] ) : 0,
 		);
 	}
 
@@ -677,10 +718,39 @@ function oxboxwise_telegram_extract_video( $message ) {
 			'file_id'   => (string) $document['file_id'],
 			'filename'  => sanitize_file_name( isset( $document['file_name'] ) ? $document['file_name'] : 'telegram-video.mp4' ),
 			'mime_type' => $mime,
+			'file_size' => isset( $document['file_size'] ) ? absint( $document['file_size'] ) : 0,
 		);
 	}
 
 	return null;
+}
+
+/**
+ * Return the smaller of the Telegram download and WordPress upload limits.
+ *
+ * @return int
+ */
+function oxboxwise_telegram_media_max_size() {
+	return min( OXBOXWISE_TELEGRAM_FILE_DOWNLOAD_LIMIT, wp_max_upload_size() );
+}
+
+/**
+ * Validate a media reference before continuing the recipe wizard.
+ *
+ * @param array $source Telegram file reference.
+ * @return true|WP_Error
+ */
+function oxboxwise_telegram_validate_media_source( $source ) {
+	$file_size = isset( $source['file_size'] ) ? absint( $source['file_size'] ) : 0;
+	$max_size  = oxboxwise_telegram_media_max_size();
+	if ( $file_size && $file_size > $max_size ) {
+		return new WP_Error(
+			'telegram_media_too_large',
+			'Файл слишком большой. Максимальный размер для загрузки ботом: ' . size_format( $max_size ) . '. Уменьшите файл и отправьте его заново.'
+		);
+	}
+
+	return true;
 }
 
 /**
@@ -717,6 +787,11 @@ function oxboxwise_telegram_handle_message( $message ) {
 		return true;
 	}
 	if ( '/newrecipe' === $command ) {
+		$author_check = oxboxwise_telegram_validate_recipe_author();
+		if ( is_wp_error( $author_check ) ) {
+			oxboxwise_telegram_send_message( $chat_id, $author_check->get_error_message() );
+			return true;
+		}
 		oxboxwise_telegram_start_recipe( $user_id, $chat_id, $message_id );
 		return true;
 	}
@@ -788,6 +863,11 @@ function oxboxwise_telegram_process_step( $user_id, $chat_id, $message, $state )
 			oxboxwise_telegram_send_message( $chat_id, 'Отправьте изображение как фото/файл или /skip.' );
 			return true;
 		}
+		$media_check = oxboxwise_telegram_validate_media_source( $media );
+		if ( is_wp_error( $media_check ) ) {
+			oxboxwise_telegram_send_message( $chat_id, $media_check->get_error_message() );
+			return true;
+		}
 		$data['_featured_media_source'] = $media;
 		oxboxwise_telegram_save_state( $user_id, $chat_id, 'video', $data );
 		oxboxwise_telegram_send_message( $chat_id, 'Изображение принято. Теперь отправьте видеофайл или /skip.' );
@@ -803,6 +883,11 @@ function oxboxwise_telegram_process_step( $user_id, $chat_id, $message, $state )
 		$media = oxboxwise_telegram_extract_video( $message );
 		if ( ! $media ) {
 			oxboxwise_telegram_send_message( $chat_id, 'Отправьте видео или video-файл как документ, либо /skip.' );
+			return true;
+		}
+		$media_check = oxboxwise_telegram_validate_media_source( $media );
+		if ( is_wp_error( $media_check ) ) {
+			oxboxwise_telegram_send_message( $chat_id, $media_check->get_error_message() );
 			return true;
 		}
 		$data['_recipe_video_source'] = $media;
@@ -858,13 +943,23 @@ function oxboxwise_telegram_import_media( $source ) {
 	if ( empty( $source['file_id'] ) || empty( $source['filename'] ) ) {
 		return new WP_Error( 'telegram_invalid_media_source', 'Telegram media source is incomplete.' );
 	}
+	$media_check = oxboxwise_telegram_validate_media_source( $source );
+	if ( is_wp_error( $media_check ) ) {
+		return $media_check;
+	}
 
 	$file_info = oxboxwise_telegram_api_request( 'getFile', array( 'file_id' => (string) $source['file_id'] ) );
 	if ( is_wp_error( $file_info ) ) {
+		if ( false !== stripos( $file_info->get_error_message(), 'file is too big' ) ) {
+			return new WP_Error(
+				'telegram_media_too_large',
+				'Файл слишком большой для скачивания ботом. Максимальный размер: ' . size_format( oxboxwise_telegram_media_max_size() ) . '. Уменьшите файл и отправьте его заново.'
+			);
+		}
 		return $file_info;
 	}
 	$file_size = isset( $file_info['file_size'] ) ? absint( $file_info['file_size'] ) : 0;
-	$max_size  = min( 20 * MB_IN_BYTES, wp_max_upload_size() );
+	$max_size  = oxboxwise_telegram_media_max_size();
 	if ( $file_size && $file_size > $max_size ) {
 		return new WP_Error( 'telegram_media_too_large', 'Файл превышает лимит Telegram Bot API или WordPress.' );
 	}
@@ -936,16 +1031,20 @@ function oxboxwise_telegram_import_media( $source ) {
  */
 function oxboxwise_telegram_prepare_media( $user_id, $chat_id, &$data ) {
 	$fields = array(
-		array( '_featured_media_source', 'featured_media_id' ),
-		array( '_recipe_video_source', 'recipe_video_id' ),
+		array( '_featured_media_source', 'featured_media_id', 'image' ),
+		array( '_recipe_video_source', 'recipe_video_id', 'video' ),
 	);
 	foreach ( $fields as $fields_pair ) {
-		list( $source_key, $attachment_key ) = $fields_pair;
+		list( $source_key, $attachment_key, $retry_step ) = $fields_pair;
 		if ( ! empty( $data[ $attachment_key ] ) || empty( $data[ $source_key ] ) ) {
 			continue;
 		}
 		$attachment_id = oxboxwise_telegram_import_media( $data[ $source_key ] );
 		if ( is_wp_error( $attachment_id ) ) {
+			if ( 'telegram_media_too_large' === $attachment_id->get_error_code() ) {
+				unset( $data[ $source_key ] );
+				oxboxwise_telegram_save_state( $user_id, $chat_id, $retry_step, $data );
+			}
 			return $attachment_id;
 		}
 		$data[ $attachment_key ] = $attachment_id;
@@ -1053,6 +1152,11 @@ function oxboxwise_telegram_handle_callback( $callback ) {
 	}
 	if ( 'confirm:create' === $action && 'confirm' === $step ) {
 		oxboxwise_telegram_answer_callback( $callback_id, 'Создаю рецепт…' );
+		$needs_media = ! empty( $data['_featured_media_source'] ) || ! empty( $data['_recipe_video_source'] );
+		$author_check = oxboxwise_telegram_validate_recipe_author( isset( $data['status'] ) ? $data['status'] : 'draft', $needs_media );
+		if ( is_wp_error( $author_check ) ) {
+			return $author_check;
+		}
 		$media_result = oxboxwise_telegram_prepare_media( $user_id, $chat_id, $data );
 		if ( is_wp_error( $media_result ) ) {
 			return $media_result;

@@ -16,11 +16,19 @@ if ( ! $video_url || ! is_string( $mime_type ) || 0 !== strpos( $mime_type, 'vid
 	return;
 }
 
-$poster = has_post_thumbnail() ? get_the_post_thumbnail_url( get_the_ID(), 'large' ) : '';
+$poster      = has_post_thumbnail() ? get_the_post_thumbnail_url( get_the_ID(), 'large' ) : '';
+$metadata    = wp_get_attachment_metadata( $video_id );
+$width       = is_array( $metadata ) && ! empty( $metadata['width'] ) ? absint( $metadata['width'] ) : 0;
+$height      = is_array( $metadata ) && ! empty( $metadata['height'] ) ? absint( $metadata['height'] ) : 0;
+$orientation = 'unknown';
+if ( $width && $height ) {
+	$orientation = $width > $height ? 'landscape' : ( $height > $width ? 'portrait' : 'square' );
+}
+$video_style = $width && $height ? '--recipe-video-aspect: ' . $width . ' / ' . $height . ';' : '';
 ?>
 
-<div class="recipe-video">
-	<video controls preload="metadata" playsinline<?php if ( $poster ) : ?> poster="<?php echo esc_url( $poster ); ?>"<?php endif; ?>>
+<div class="recipe-video recipe-video--<?php echo esc_attr( $orientation ); ?>" data-recipe-video-frame<?php if ( $video_style ) : ?> style="<?php echo esc_attr( $video_style ); ?>"<?php endif; ?>>
+	<video controls preload="metadata" playsinline data-recipe-video<?php if ( $poster ) : ?> poster="<?php echo esc_url( $poster ); ?>"<?php endif; ?>>
 		<source src="<?php echo esc_url( $video_url ); ?>" type="<?php echo esc_attr( $mime_type ); ?>">
 		Ваш браузер не поддерживает воспроизведение видео.
 	</video>

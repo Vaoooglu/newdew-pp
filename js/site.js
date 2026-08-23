@@ -177,6 +177,20 @@
 		}
 	}
 
+	function updateRecipeVideoOrientation( video ) {
+		var frame = video.closest( '[data-recipe-video-frame]' );
+		var width = video.videoWidth;
+		var height = video.videoHeight;
+		if ( ! frame || ! width || ! height ) {
+			return;
+		}
+
+		var orientation = width > height ? 'landscape' : ( height > width ? 'portrait' : 'square' );
+		frame.classList.remove( 'recipe-video--unknown', 'recipe-video--landscape', 'recipe-video--portrait', 'recipe-video--square' );
+		frame.classList.add( 'recipe-video--' + orientation );
+		frame.style.setProperty( '--recipe-video-aspect', width + ' / ' + height );
+	}
+
 	document.addEventListener( 'click', function ( event ) {
 		var opener = event.target.closest( '[data-panel-open]' );
 		if ( opener ) {
@@ -222,4 +236,13 @@
 
 	updateFavoriteButtons();
 	renderFavorites();
+	document.querySelectorAll( '[data-recipe-video]' ).forEach( function ( video ) {
+		if ( video.readyState >= 1 ) {
+			updateRecipeVideoOrientation( video );
+		} else {
+			video.addEventListener( 'loadedmetadata', function () {
+				updateRecipeVideoOrientation( video );
+			}, { once: true } );
+		}
+	} );
 }() );

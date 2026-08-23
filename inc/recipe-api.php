@@ -35,10 +35,10 @@ function oxboxwise_register_recipe_api_fields() {
 					'label'         => 'Автор рецептов API',
 					'name'          => 'recipe_api_author',
 					'type'          => 'user',
-					'required'      => 0,
+					'required'      => 1,
 					'instructions'  => 'От имени этого пользователя API и Telegram-бот создают рецепты и загружают файлы.',
 					'role'          => array(),
-					'allow_null'    => 1,
+					'allow_null'    => 0,
 					'multiple'      => 0,
 					'return_format' => 'id',
 				),
@@ -96,7 +96,7 @@ function oxboxwise_get_recipe_api_author_id() {
 		return absint( get_field( 'recipe_api_author', 'option', false ) );
 	}
 
-	return 0;
+	return absint( get_option( 'options_recipe_api_author' ) );
 }
 
 /**

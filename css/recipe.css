@@ -503,7 +503,7 @@ h3 {
 .recipe-card__media {
 	position: relative;
 	display: block;
-	aspect-ratio: 4 / 3;
+	aspect-ratio: 1;
 	overflow: hidden;
 	border: 1px solid var(--color-border);
 	border-radius: var(--radius-md);
@@ -852,9 +852,12 @@ h3 {
 	position: relative;
 	width: 100%;
 	margin: 0;
-	aspect-ratio: 4 / 3;
 	overflow: hidden;
 	background: var(--color-surface-secondary);
+}
+
+.recipe-single__image {
+	aspect-ratio: 1;
 }
 
 .recipe-single__image img,
@@ -972,7 +975,8 @@ h3 {
 }
 
 .recipe-video {
-	aspect-ratio: 16 / 9;
+	aspect-ratio: var(--recipe-video-aspect, 16 / 9);
+	background: #000;
 }
 
 .recipe-video video {
@@ -981,6 +985,18 @@ h3 {
 	width: 100%;
 	height: 100%;
 	border: 0;
+	background: #000;
+	object-fit: contain;
+}
+
+.recipe-video--portrait {
+	width: min(100%, 430px);
+	margin-inline: auto;
+}
+
+.recipe-video--square {
+	width: min(100%, 680px);
+	margin-inline: auto;
 }
 
 .recipe-single__body {
