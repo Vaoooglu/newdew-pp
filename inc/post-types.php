@@ -56,7 +56,7 @@ function oxboxwise_register_recipe_content() {
 				'menu_name'     => 'Категории',
 			),
 			'public'            => true,
-			'hierarchical'      => false,
+			'hierarchical'      => true,
 			'show_admin_column' => true,
 			'show_in_rest'      => false,
 			'rewrite'           => array( 'slug' => 'recipe-category' ),
@@ -225,5 +225,4 @@ add_filter( 'pre_insert_term', 'oxboxwise_normalize_recipe_ingredient', 10, 2 );
 //}
 //add_action('init', 'register_wisedev_services_post_type');
 //
-
 
