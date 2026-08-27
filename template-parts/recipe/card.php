@@ -9,6 +9,8 @@ $heading_level = isset( $args['heading_level'] ) && in_array( (int) $args['headi
 $categories    = get_the_terms( get_the_ID(), 'recipe_category' );
 $time          = function_exists( 'get_field' ) ? get_field( 'recipe_cooking_time' ) : get_post_meta( get_the_ID(), 'recipe_cooking_time', true );
 $video_id      = oxboxwise_get_recipe_video_id();
+$youtube_url   = $video_id ? '' : oxboxwise_get_recipe_youtube_url();
+$media_label   = $video_id ? 'Видео' : ( $youtube_url ? 'YouTube' : '' );
 $image_url     = has_post_thumbnail() ? get_the_post_thumbnail_url( get_the_ID(), 'medium' ) : '';
 ?>
 
@@ -19,8 +21,8 @@ $image_url     = has_post_thumbnail() ? get_the_post_thumbnail_url( get_the_ID()
 		<?php else : ?>
 			<span class="recipe-card__placeholder"><span aria-hidden="true"><?php echo esc_html( function_exists( 'mb_substr' ) ? mb_substr( get_the_title(), 0, 1 ) : substr( get_the_title(), 0, 1 ) ); ?></span><small>Без изображения</small></span>
 		<?php endif; ?>
-		<?php if ( $video_id ) : ?>
-			<span class="recipe-card__video-label"><svg aria-hidden="true"><use href="#icon-play"></use></svg> Видео</span>
+		<?php if ( $media_label ) : ?>
+			<span class="recipe-card__video-label"><svg aria-hidden="true"><use href="#icon-play"></use></svg> <?php echo esc_html( $media_label ); ?></span>
 		<?php endif; ?>
 	</a>
 	<div class="recipe-card__body">
