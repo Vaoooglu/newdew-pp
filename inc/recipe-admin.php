@@ -23,6 +23,14 @@ function oxboxwise_register_recipe_fields() {
 			'title'    => 'Дополнительные данные рецепта',
 			'fields'   => array(
 				array(
+					'key'          => 'field_oxboxwise_recipe_youtube_url',
+					'label'        => 'Ссылка на YouTube',
+					'name'         => 'recipe_youtube_url',
+					'type'         => 'url',
+					'required'     => 0,
+					'instructions' => 'Ссылка выводится вместо встроенного YouTube-плеера. Если выбран видеофайл, на сайте будет показан именно файл.',
+				),
+				array(
 					'key'         => 'field_oxboxwise_recipe_note',
 					'label'       => 'Личная заметка',
 					'name'        => 'recipe_note',
@@ -100,6 +108,226 @@ function oxboxwise_validate_recipe_video( $valid, $value ) {
 add_filter( 'acf/validate_value/key=field_oxboxwise_recipe_video', 'oxboxwise_validate_recipe_video', 10, 2 );
 
 /**
+ * Return a canonical YouTube watch URL for supported YouTube links.
+ *
+ * @param string $url Submitted URL.
+ * @return string|WP_Error
+ */
+function oxboxwise_normalize_youtube_url( $url ) {
+	$url   = esc_url_raw( trim( (string) $url ) );
+	$parts = wp_parse_url( $url );
+	if ( ! $url || ! is_array( $parts ) || empty( $parts['host'] ) ) {
+		return new WP_Error( 'invalid_youtube_url', 'Укажите корректную ссылку на YouTube.' );
+	}
+
+	$host       = strtolower( rtrim( $parts['host'], '.' ) );
+	$host       = 0 === strpos( $host, 'www.' ) ? substr( $host, 4 ) : $host;
+	$video_id   = '';
+	$path_parts = array_values( array_filter( explode( '/', isset( $parts['path'] ) ? trim( $parts['path'], '/' ) : '' ) ) );
+
+	if ( 'youtu.be' === $host && ! empty( $path_parts[0] ) ) {
+		$video_id = $path_parts[0];
+	} elseif ( in_array( $host, array( 'youtube.com', 'm.youtube.com', 'music.youtube.com', 'youtube-nocookie.com' ), true ) ) {
+		if ( ! empty( $parts['query'] ) ) {
+			parse_str( $parts['query'], $query );
+			$video_id = isset( $query['v'] ) ? $query['v'] : '';
+		}
+		if ( ! $video_id && count( $path_parts ) >= 2 && in_array( $path_parts[0], array( 'shorts', 'embed', 'live' ), true ) ) {
+			$video_id = $path_parts[1];
+		}
+	}
+
+	$video_id = preg_replace( '/[^A-Za-z0-9_-]/', '', (string) $video_id );
+	if ( 11 !== strlen( $video_id ) ) {
+		return new WP_Error( 'invalid_youtube_url', 'Не удалось определить видео в этой ссылке.' );
+	}
+
+	return 'https://www.youtube.com/watch?v=' . $video_id;
+}
+
+/**
+ * Extract a useful description from a YouTube watch page.
+ *
+ * @param string $html Page HTML.
+ * @return string
+ */
+function oxboxwise_extract_youtube_description( $html ) {
+	if ( ! is_string( $html ) || '' === $html ) {
+		return '';
+	}
+
+	$patterns = array(
+		'/<meta[^>]+property=["\']og:description["\'][^>]+content=(["\'])(.*?)\1/i',
+		'/<meta[^>]+content=(["\'])(.*?)\1[^>]+property=["\']og:description["\']/i',
+		'/<meta[^>]+name=["\']description["\'][^>]+content=(["\'])(.*?)\1/i',
+		'/<meta[^>]+content=(["\'])(.*?)\1[^>]+name=["\']description["\']/i',
+	);
+	foreach ( $patterns as $pattern ) {
+		if ( preg_match( $pattern, $html, $matches ) ) {
+			return sanitize_textarea_field( html_entity_decode( $matches[2], ENT_QUOTES, 'UTF-8' ) );
+		}
+	}
+
+	return '';
+}
+
+/**
+ * Add the importer only to the new recipe screen.
+ */
+function oxboxwise_add_youtube_recipe_metabox() {
+	global $pagenow;
+	if ( 'post-new.php' !== $pagenow ) {
+		return;
+	}
+
+	add_meta_box(
+		'oxboxwise-youtube-import',
+		'Импорт из YouTube',
+		'oxboxwise_render_youtube_recipe_metabox',
+		'recipe',
+		'side',
+		'high'
+	);
+}
+add_action( 'add_meta_boxes_recipe', 'oxboxwise_add_youtube_recipe_metabox' );
+
+/**
+ * Render the YouTube importer controls.
+ *
+ * @param WP_Post $post Current recipe draft.
+ */
+function oxboxwise_render_youtube_recipe_metabox( $post ) {
+	?>
+	<p>Вставьте ссылку: заголовок, описание и превью будут добавлены в текущий черновик.</p>
+	<p><label class="screen-reader-text" for="oxboxwise-youtube-url">Ссылка на YouTube</label><input type="url" class="widefat" id="oxboxwise-youtube-url" placeholder="https://youtu.be/…"></p>
+	<p><button type="button" class="button button-primary" id="oxboxwise-youtube-import-button">Получить данные</button></p>
+	<p id="oxboxwise-youtube-import-status" role="status" aria-live="polite"></p>
+	<?php
+}
+
+/**
+ * Load the importer script on the new recipe screen.
+ *
+ * @param string $hook_suffix Current admin screen hook.
+ */
+function oxboxwise_enqueue_youtube_recipe_importer( $hook_suffix ) {
+	global $post;
+
+	if ( 'post-new.php' !== $hook_suffix ) {
+		return;
+	}
+
+	$screen = get_current_screen();
+	if ( ! $screen || 'recipe' !== $screen->post_type ) {
+		return;
+	}
+
+	$post_id     = $post instanceof WP_Post ? absint( $post->ID ) : 0;
+	$script_path = get_template_directory() . '/js/admin-youtube-recipe.js';
+	if ( ! $post_id ) {
+		return;
+	}
+
+	wp_enqueue_script(
+		'oxboxwise-youtube-recipe-importer',
+		get_template_directory_uri() . '/js/admin-youtube-recipe.js',
+		array( 'jquery' ),
+		file_exists( $script_path ) ? (string) filemtime( $script_path ) : wp_get_theme()->get( 'Version' ),
+		true
+	);
+	wp_localize_script(
+		'oxboxwise-youtube-recipe-importer',
+		'oxboxwiseYoutubeRecipe',
+		array(
+			'ajaxUrl' => admin_url( 'admin-ajax.php' ),
+			'nonce'   => wp_create_nonce( 'oxboxwise_import_youtube_recipe_' . $post_id ),
+			'postId'  => $post_id,
+		)
+	);
+}
+add_action( 'admin_enqueue_scripts', 'oxboxwise_enqueue_youtube_recipe_importer' );
+
+/**
+ * Import the remote preview into the recipe draft and return editable field data.
+ */
+function oxboxwise_ajax_import_youtube_recipe() {
+	$post_id = isset( $_POST['post_id'] ) ? absint( $_POST['post_id'] ) : 0;
+	check_ajax_referer( 'oxboxwise_import_youtube_recipe_' . $post_id, 'nonce' );
+
+	if ( ! $post_id || 'recipe' !== get_post_type( $post_id ) || ! current_user_can( 'edit_post', $post_id ) ) {
+		wp_send_json_error( array( 'message' => 'Недостаточно прав для изменения этого рецепта.' ), 403 );
+	}
+
+	$youtube_url = oxboxwise_normalize_youtube_url( isset( $_POST['url'] ) ? wp_unslash( $_POST['url'] ) : '' );
+	if ( is_wp_error( $youtube_url ) ) {
+		wp_send_json_error( array( 'message' => $youtube_url->get_error_message() ), 422 );
+	}
+
+	$oembed_url = add_query_arg(
+		array(
+			'url'    => $youtube_url,
+			'format' => 'json',
+		),
+		'https://www.youtube.com/oembed'
+	);
+	$oembed_response = wp_safe_remote_get( $oembed_url, array( 'timeout' => 15, 'redirection' => 2 ) );
+	if ( is_wp_error( $oembed_response ) || 200 !== wp_remote_retrieve_response_code( $oembed_response ) ) {
+		wp_send_json_error( array( 'message' => 'YouTube не вернул данные видео. Проверьте ссылку и доступность ролика.' ), 502 );
+	}
+
+	$oembed = json_decode( wp_remote_retrieve_body( $oembed_response ), true );
+	if ( ! is_array( $oembed ) || empty( $oembed['title'] ) ) {
+		wp_send_json_error( array( 'message' => 'Ответ YouTube не содержит заголовок видео.' ), 502 );
+	}
+
+	$description = '';
+	$page         = wp_safe_remote_get(
+		$youtube_url,
+		array(
+			'timeout'     => 15,
+			'redirection' => 2,
+			'headers'     => array( 'Accept-Language' => 'ru,en;q=0.8' ),
+		)
+	);
+	if ( ! is_wp_error( $page ) && 200 === wp_remote_retrieve_response_code( $page ) ) {
+		$description = oxboxwise_extract_youtube_description( wp_remote_retrieve_body( $page ) );
+	}
+
+	$content = '' !== $description ? wpautop( esc_html( $description ) ) : '';
+
+	$attachment_id = 0;
+	if ( ! empty( $oembed['thumbnail_url'] ) ) {
+		require_once ABSPATH . 'wp-admin/includes/file.php';
+		require_once ABSPATH . 'wp-admin/includes/media.php';
+		require_once ABSPATH . 'wp-admin/includes/image.php';
+		$attachment_id = media_sideload_image( esc_url_raw( $oembed['thumbnail_url'] ), $post_id, sanitize_text_field( $oembed['title'] ), 'id' );
+		if ( is_wp_error( $attachment_id ) ) {
+			$attachment_id = 0;
+		} else {
+			set_post_thumbnail( $post_id, $attachment_id );
+		}
+	}
+
+	$thumbnail_html = '';
+	if ( $attachment_id ) {
+		require_once ABSPATH . 'wp-admin/includes/post.php';
+		$thumbnail_html = _wp_post_thumbnail_html( $attachment_id, $post_id );
+	}
+
+	wp_send_json_success(
+		array(
+			'title'          => sanitize_text_field( $oembed['title'] ),
+			'content'        => wp_kses_post( $content ),
+			'youtubeUrl'     => $youtube_url,
+			'hasDescription' => '' !== $description,
+			'attachmentId'   => $attachment_id,
+			'thumbnailHtml'  => $thumbnail_html,
+		)
+	);
+}
+add_action( 'wp_ajax_oxboxwise_import_youtube_recipe', 'oxboxwise_ajax_import_youtube_recipe' );
+
+/**
  * Return the valid video attachment assigned to a recipe.
  *
  * @param int $post_id Recipe post ID.
@@ -120,4 +348,22 @@ function oxboxwise_get_recipe_video_id( $post_id = 0 ) {
 
 	$mime_type = get_post_mime_type( $video_id );
 	return is_string( $mime_type ) && 0 === strpos( $mime_type, 'video/' ) ? $video_id : 0;
+}
+
+/**
+ * Return the valid YouTube URL assigned to a recipe.
+ *
+ * @param int $post_id Recipe post ID.
+ * @return string
+ */
+function oxboxwise_get_recipe_youtube_url( $post_id = 0 ) {
+	$post_id = $post_id ? absint( $post_id ) : get_the_ID();
+	if ( ! $post_id ) {
+		return '';
+	}
+
+	$value = function_exists( 'get_field' ) ? get_field( 'recipe_youtube_url', $post_id, false ) : get_post_meta( $post_id, 'recipe_youtube_url', true );
+	$url   = oxboxwise_normalize_youtube_url( $value );
+
+	return is_wp_error( $url ) ? '' : $url;
 }

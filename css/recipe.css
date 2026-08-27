@@ -848,7 +848,8 @@ h3 {
 }
 
 .recipe-single__image,
-.recipe-video {
+.recipe-video,
+.recipe-youtube-player {
 	position: relative;
 	width: 100%;
 	margin: 0;
@@ -866,6 +867,63 @@ h3 {
 	width: 100%;
 	height: 100%;
 	object-fit: cover;
+}
+
+.recipe-youtube-player {
+	aspect-ratio: 16 / 9;
+	background: #000;
+}
+
+.recipe-youtube-player .recipe-single__image {
+	aspect-ratio: 16 / 9;
+}
+
+.recipe-youtube-player iframe {
+	display: block;
+	width: 100%;
+	height: 100%;
+	border: 0;
+}
+
+.recipe-media-play {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	z-index: 2;
+	display: grid;
+	place-items: center;
+	width: 76px;
+	height: 76px;
+	padding: 0;
+	border: 2px solid rgba(255, 255, 255, 0.92);
+	border-radius: 50%;
+	background: rgba(16, 20, 16, 0.78);
+	box-shadow: 0 8px 28px rgba(0, 0, 0, 0.3);
+	color: #fff;
+	transform: translate(-50%, -50%);
+	transition: background 160ms ease, transform 160ms ease, opacity 160ms ease;
+}
+
+.recipe-media-play:hover {
+	background: var(--color-accent);
+	transform: translate(-50%, -50%) scale(1.06);
+}
+
+.recipe-media-play:focus-visible {
+	outline: 3px solid #fff;
+	outline-offset: 3px;
+}
+
+.recipe-media-play svg {
+	width: 34px;
+	height: 34px;
+	fill: currentColor;
+	stroke: none;
+}
+
+.recipe-video.is-playing .recipe-media-play {
+	opacity: 0;
+	pointer-events: none;
 }
 
 .recipe-single__image--empty {
@@ -1566,7 +1624,8 @@ h3 {
 	}
 
 	.recipe-single__image,
-	.recipe-video {
+	.recipe-video,
+	.recipe-youtube-player {
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-lg);
 	}

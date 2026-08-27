@@ -16,9 +16,12 @@ while ( have_posts() ) :
 			<div class="recipe-single__hero">
 				<div class="recipe-single__media">
 					<?php
-					$video_id = oxboxwise_get_recipe_video_id();
+					$video_id    = oxboxwise_get_recipe_video_id();
+					$youtube_url = oxboxwise_get_recipe_youtube_url();
 					if ( $video_id ) {
 						get_template_part( 'template-parts/recipe/video', null, array( 'video_id' => $video_id ) );
+					} elseif ( $youtube_url ) {
+						get_template_part( 'template-parts/recipe/youtube-link', null, array( 'youtube_url' => $youtube_url ) );
 					} elseif ( has_post_thumbnail() ) {
 						?>
 						<figure class="recipe-single__image">

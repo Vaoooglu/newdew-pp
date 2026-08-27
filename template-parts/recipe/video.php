@@ -32,4 +32,7 @@ $video_style = $width && $height ? '--recipe-video-aspect: ' . $width . ' / ' . 
 		<source src="<?php echo esc_url( $video_url ); ?>" type="<?php echo esc_attr( $mime_type ); ?>">
 		Ваш браузер не поддерживает воспроизведение видео.
 	</video>
+	<button class="recipe-media-play" type="button" data-recipe-video-play aria-label="Воспроизвести видео">
+		<svg aria-hidden="true"><use href="#icon-play"></use></svg>
+	</button>
 </div>

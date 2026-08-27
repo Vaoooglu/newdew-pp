@@ -191,7 +191,47 @@
 		frame.style.setProperty( '--recipe-video-aspect', width + ' / ' + height );
 	}
 
+	function playRecipeVideo( button ) {
+		var frame = button.closest( '[data-recipe-video-frame]' );
+		var video = frame ? frame.querySelector( '[data-recipe-video]' ) : null;
+		if ( ! video ) {
+			return;
+		}
+
+		var playResult = video.play();
+		if ( playResult && 'function' === typeof playResult.catch ) {
+			playResult.catch( function () {} );
+		}
+	}
+
+	function playRecipeYoutube( button ) {
+		var frame = button.closest( '[data-recipe-youtube-player]' );
+		var embedUrl = frame ? frame.dataset.youtubeEmbed : '';
+		if ( ! frame || ! embedUrl ) {
+			return;
+		}
+
+		var iframe = document.createElement( 'iframe' );
+		iframe.src = embedUrl;
+		iframe.title = 'YouTube: ' + ( button.dataset.videoTitle || 'видео рецепта' );
+		iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+		iframe.referrerPolicy = 'strict-origin-when-cross-origin';
+		iframe.allowFullscreen = true;
+		frame.classList.add( 'is-playing' );
+		frame.replaceChildren( iframe );
+	}
+
 	document.addEventListener( 'click', function ( event ) {
+		var youtubePlay = event.target.closest( '[data-recipe-youtube-play]' );
+		if ( youtubePlay ) {
+			playRecipeYoutube( youtubePlay );
+			return;
+		}
+		var videoPlay = event.target.closest( '[data-recipe-video-play]' );
+		if ( videoPlay ) {
+			playRecipeVideo( videoPlay );
+			return;
+		}
 		var opener = event.target.closest( '[data-panel-open]' );
 		if ( opener ) {
 			openPanel( opener.dataset.panelOpen, opener );
@@ -237,6 +277,22 @@
 	updateFavoriteButtons();
 	renderFavorites();
 	document.querySelectorAll( '[data-recipe-video]' ).forEach( function ( video ) {
+		var frame = video.closest( '[data-recipe-video-frame]' );
+		video.addEventListener( 'play', function () {
+			if ( frame ) {
+				frame.classList.add( 'is-playing' );
+			}
+		} );
+		video.addEventListener( 'pause', function () {
+			if ( frame && ! video.ended ) {
+				frame.classList.remove( 'is-playing' );
+			}
+		} );
+		video.addEventListener( 'ended', function () {
+			if ( frame ) {
+				frame.classList.remove( 'is-playing' );
+			}
+		} );
 		if ( video.readyState >= 1 ) {
 			updateRecipeVideoOrientation( video );
 		} else {
